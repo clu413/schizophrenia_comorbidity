@@ -50,3 +50,22 @@ for(i in 0:8){
 
 ctrl_enrollment <- ctrl_all[,4:12] %>%
     summarise_all(sum)
+
+#### 2021-02-05 edit: need to remove patients who had V11.0 before their non-V11.0 schizophrenia onset date
+case_icds_3hit <- vroom('XXX/schizo/data/retrieved_data/case_ctrl_icds/case_icds_3hit.txt')
+pairs <- vroom('/n/data2/hms/dbmi/kyu/lab/cl427/schizo/data/schizo_match_BirthyearGenderZip_3hit.csv')
+
+pts_w_hx <- case_icds_3hit %>% 
+    filter(Icd=='V11.0') %>%
+    merge(pairs) %>%
+    group_by(case_id) %>%
+    filter(any(DateServiceStarted <= schizo_onset)) %>%
+    distinct(case_id)
+
+# remove them from cohort of 63133
+pairs_no_hx <- pairs %>%
+    filter(!case_id %in% pts_w_hx$case_id)
+
+# Now we have a final cohort of 63054.
+write.csv(pairs_no_hx, 'XXX/schizo/data/schizo_match_BirthyearGenderZip_3hit_noHx.csv', row.names=F)
+
