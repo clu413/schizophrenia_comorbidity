@@ -19,6 +19,7 @@ icd_list <- list(unique(df$IcdCode))[[1]]
 remove(phecode_df, df)
 
 # get all icds of patients with 3-hit schizo and their matching controls
+pairs <- vroom('XXX/schizo/data/schizo_match_BirthyearGenderZip_3hit_noHx_15yo_and_above.csv')
 case_icds_3hit <- vroom('XXX/schizo/data/retrieved_data/case_ctrl_icds/case_icds_3hit.txt')
 print(paste('Finished loading all the cases!', Sys.time()))
 
@@ -34,10 +35,29 @@ ctrl_icds_phe <- ctrl_icds_3hit %>%
     filter(Icd %in% icd_list)
 remove(ctrl_icds_3hit)
 
+### make sure neither case nor control in the pair had the condition 12 months before 
+case_existing <- pairs %>%
+    merge(case_icds_phe) %>%
+    group_by(case_id) %>%
+    filter(!any(DateServiceStarted < schizo_onset & DateServiceStarted >= (schizo_onset - years(1)))) %>%
+    ungroup() %>%
+    distinct(case_id) %>%
+    unlist(use.names = FALSE)
 
-### make sure each member has at least three hits of dz after schizo onset
-# load patient enrollment and schizo onset index date information 
-pairs <- vroom('XXX/schizo/data/schizo_match_BirthyearGenderZip_3hit.csv')
+# repeat in controls
+ctrl_existing <- pairs %>%
+    merge(ctrl_icds_phe) %>%
+    group_by(ctrl_id) %>%
+    filter(!any(DateServiceStarted < schizo_onset & DateServiceStarted >= (schizo_onset - years(1)))) %>%
+    ungroup() %>%
+    distinct(ctrl_id) %>%
+    unlist(use.names = FALSE)
+
+# remove any pair that had either case or contrl with existing condition
+pairs <- pairs %>%
+    filter(!case_id %in% case_existing) %>%
+    filter(!ctrl_id %in% ctrl_existing)
+
 # turn pairs table from wide to long, with column indicating aff(schizo) or control(0)
 case_dates <- pairs[,c("case_id","schizo_onset","case_XXXXXLastDate")] %>%
     mutate(schizo_status =1)
